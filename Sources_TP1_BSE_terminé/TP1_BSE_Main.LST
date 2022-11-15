@@ -1,0 +1,128 @@
+C51 COMPILER V9.60.0.0   TP1_BSE_MAIN                                                      11/15/2022 18:00:49 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TP1_BSE_MAIN
+OBJECT MODULE PLACED IN TP1_BSE_Main.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE TP1_BSE_Main.c OPTIMIZE(0,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          //-----------------------------------------------------------------------------
+   2          // TP1_BSE.c
+   3          //-----------------------------------------------------------------------------
+   4          // AUTH: LAJUGIE Rodolphe, CORNATON Maxime
+   5          // DATE: 15/11/2022
+   6          //
+   7          // Target: C8051F02x
+   8          // Tool chain: KEIL Microvision5
+   9          //
+  10          //-----------------------------------------------------------------------------
+  11          // Déclarations Registres et Bits de l'espace SFR
+  12          #include "intrins.h"
+  13          #include<c8051F020.h>
+  14          #include<c8051F020_SFR16.h>
+  15          #include<TP1_BSE_Lib_Config_Globale.h>
+  16          #include<TP1_BSE_Lib_Divers.h>
+  17          
+  18          #define LED_ON 1
+  19          #define LED_OFF 0
+  20          
+  21          #define BP_PRESSED 1
+  22          #define BP_NOT_PRESSED 0
+  23          
+  24          #define CLIGNOTEMENT 1
+  25          
+  26          #define START 1
+  27          #define END 0
+  28          
+  29          sbit LED = P1^6;  // LED
+  30          sbit BP = P3^7; //BP
+  31          
+  32          sbit VISU_INT7_START = P2^0;
+  33          //sbit VISU_INT7_END = 0x86;
+  34          //sbit VISU_INT7_WIDTH = 0x87;
+  35          
+  36          bit ETAT_LED = 1;
+  37          bit ACK_BP = 1;
+  38          
+  39          //------------------------------------------------------------------------------------
+  40          // Function Prototypes
+  41          
+  42          //------------------------------------------------------------------------------------
+  43          //------------------------------------------------------------------------------------
+  44          
+  45          
+  46          
+  47          //Le cod.e de l’interruption INT7
+  48          //****************************************************************
+  49          void ISR_INT7() interrupt 19
+  50          {   VISU_INT7_START = START;
+  51   1          VISU_INT7_START = END;
+  52   1        
+  53   1          P6 |= (1<<1); //VISU_INT7_WIDTH
+  54   1        
+  55   1          ETAT_LED = !ETAT_LED;
+C51 COMPILER V9.60.0.0   TP1_BSE_MAIN                                                      11/15/2022 18:00:49 PAGE 2   
+
+  56   1          P3IF &= ~(1<<7); 
+  57   1        
+  58   1          P6 &= ~(1<<1); //VISU_INT7_WIDTH
+  59   1        
+  60   1          P6 |= (1<<0); //VISU_INT7_END
+  61   1          P6 &= ~(1<<0); //VISU_INT7_END
+  62   1      }
+  63          
+  64          
+  65          void Config_INT7_Ext(void){ //p109/110
+  66   1          P3IF &= ~(1<<7); //Pending Flag =0
+  67   1          P3IF |= (0<<3); //Declenchement sur front descendant
+  68   1          EIE2 |= (1<<5); //Autorise l'interruption sur INT7
+  69   1          EIP2 |= (1<<5); //Priorité
+  70   1      }
+  71          
+  72          
+  73          //-----------------------------------------------------------------------------
+  74          // MAIN Routine
+  75          //-----------------------------------------------------------------------------
+  76          
+  77          
+  78          void main (void) {
+  79   1          Init_Device();
+  80   1        
+  81   1          //Accès au port en mode GPIO sortie du port
+  82   1          P3MDOUT &= ~(1<<7);
+  83   1          BP = 1;
+  84   1        
+  85   1          Config_INT7_Ext();
+  86   1          EA = 1;
+  87   1          
+  88   1          P2MDOUT |= (1<<0);
+  89   1          P3MDOUT &= ~(1<<7);
+  90   1          P74OUT |= (1<<4);
+  91   1          
+  92   1          while(1)
+  93   1          {
+  94   2              if(ETAT_LED == CLIGNOTEMENT){     
+  95   3                  LED = LED_ON;
+  96   3                  Software_Delay(2); // Allumage 20ms
+  97   3                  LED = LED_OFF;
+  98   3                  Software_Delay(10); // Extinction 100ms
+  99   3              }
+ 100   2          }
+ 101   1              
+ 102   1      }
+ 103          //*****************************************************************************    
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     81    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
