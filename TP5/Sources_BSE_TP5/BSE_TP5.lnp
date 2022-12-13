@@ -1,0 +1,10 @@
+"STARTUP.obj",
+"TP5_BSE_Lib_Timers_UART.obj",
+"TP5_BSE_Lib_Config_Globale.obj",
+"TP5_BSE_Lib_Divers.obj",
+"TP5_BSE_Lib_INT_EXT.obj",
+"TP5_BSE_Main.obj" 
+TO "BSE_TP5" 
+RAMSIZE(256) 
+CODE( 0X0000-0XFFFF )
+XDATA( 0X0000-0X0FFF )

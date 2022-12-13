@@ -1,0 +1,381 @@
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TP4_BSE_MAIN
+OBJECT MODULE PLACED IN TP4_BSE_Main.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE TP4_BSE_Main.C WARNINGLEVEL(0) OPTIMIZE(0,SPEED) BROWSE DEBUG OBJECTEXTE
+                    -ND TABS(2)
+
+line level    source
+
+   1          //-----------------------------------------------------------------------------
+   2          // TP4_BSE_Main.c
+   3          // AUTH: FJ, LAJUGIE Rodolphe, CORNATON Maxime
+   4          // DATE: 5/12/21
+   5          //
+   6          // Target: C8051F02x
+   7          // Tool chain: KEIL Microvision5
+   8          //
+   9          //-----------------------------------------------------------------------------
+  10          //-----------------------------------------------------------------------------
+  11          
+  12          // Cette application exécute les tâches suivantes:
+  13          // SYSCLK = Quartz externe = 22.1184 MHz (Visu sur P1.0)
+  14          // Clignotement de la LED P1.6
+  15          // Commande du clignotement de la LED avec le bouton poussoir P3.7 (INT7) et 
+  16          // via le signal DECL_EXT sur P3.6 (INT6)
+  17          
+  18          // Mise en oeuvre de la base de temps Timer2 de 10ms et interruption Timer2
+  19          
+  20          // Mise en oeuvre d'un comptage d'évènements SIG_IN (sur T4)
+  21          // Le comptage d'évènement est assuré par le Timer4 et par une interruption Timer4
+  22          // Comptage Programmable selon les facteurs 10-100-1000-10000
+  23          // La programmation du comptage est assurée au travers des niveaux sur P2.5 et P2.6
+  24          // Le signal SIG_OUT change d'état à chaque fois que l'on a compté 10...10000 évènements
+  25          
+  26          
+  27          // Calcul de la fréquence de SIG_IN et stockage dans la variable Frequence
+  28          // La mesure de fréquence est assurée par une mesure du nombre d'évènements sur une seconde
+  29          // Mesure réalisée dans l'interruption Timer2
+  30          
+  31          // Visu Flag INT7 sur P2.4
+  32          // Visu Flag INT6 sur P6.4
+  33          // Visu Flag INT Timer2 sur P3.5
+  34          // Visu Flag INT Timer4 sur P3.4
+  35          
+  36          // Visu SIG_OUT sur P3.3
+  37          
+  38          //*****************************************************************************
+  39          // Fichiers d'entête
+  40          #include "intrins.h"
+  41          #include<c8051F020.h>
+  42          #include<c8051F020_SFR16.h>
+  43          #include<TP4_BSE_Lib_Config_Globale.h>
+  44          #include<TP4_BSE_Lib_Divers.h>
+  45          #include<TP4_BSE_Main.h>
+  46          
+  47          #include<stdio.h>
+  48          void Cfg_CLK_UART0(void);
+  49          void Cfg_UART0(void);
+  50          char putchar(char);
+  51          //-----------------------------------------------------------------------------
+  52          // Déclaration des MACROS
+  53          
+  54          #define SYSCLK 22118400L
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 2   
+
+  55          #define LED_ON 1
+  56          
+  57          #define LED_OFF 0
+  58          #define LED_BLINK 0
+  59          #define BP_ON 0
+  60          #define BP_OFF 1
+  61          #define TO_BE_PROCESSED 1
+  62          #define PROCESSED 0
+  63          #define SET_VISU_INT6 P6 |= (1<<4)
+  64          #define RESET_VISU_INT6 P6 &= ~(1<<4)
+  65          //-----------------------------------------------------------------------------
+  66          // Déclarations Registres et Bits de l'espace SFR
+  67          sbit LED = P1^6;  // LED
+  68          sbit BP =P3^7;
+  69          sbit VISU_INT7 = P2^4;
+  70          sbit VISU_INT_TIMER2 = P3^5;
+  71          sbit VISU_INT_TIMER4 = P3^4;
+  72          sbit SIG_OUT = P3^3;
+  73          //-----------------------------------------------------------------------------
+  74          // Variables globales
+  75          
+  76          bit Event = PROCESSED;  // Détection des évènements pour changer le clignotement de la LED
+  77          unsigned int Event_to_Count = 100 ; //Valeur du comptage d'évènements 
+  78          long frequence = 0;  // Fréquence calculée de SIG_IN
+  79          unsigned int CP_Overflow_Timer4; // Compteur d'overflows du Timer4
+  80          //-----------------------------------------------------------------------------
+  81          // MAIN Routine
+  82          //-----------------------------------------------------------------------------
+  83          void main (void) {
+  84   1        
+  85   1      
+  86   1      
+  87   1           // Configurations globales
+  88   1              Init_Device();
+  89   1             
+  90   1           // Configurations  spécifiques  
+  91   1              Config_INT7(); // Configuration de INT7
+  92   1              Config_INT6(); // Configuration de INT6
+  93   1              Config_Timer2_TimeBase();
+  94   1              Config_Timer4_Event_Counter();
+  95   1              Cfg_CLK_UART0();
+  96   1              Cfg_UART0();
+  97   1           // Fin des configurations
+  98   1              
+  99   1              EA = 1;  // Validation globale des interruptions
+ 100   1        
+ 101   1      // Boucle infinie 
+ 102   1               while(1){
+ 103   2               
+ 104   2                printf("Mesure frequence : %ld Hz\n", frequence);
+ 105   2      
+ 106   2                
+ 107   2               Software_Delay(1000); //1s
+ 108   2      
+ 109   2               }
+ 110   1                
+ 111   1            }
+ 112          //******************************************************************************
+ 113          void Config_INT7(void)
+ 114          {
+ 115   1        P3IF &= ~(1<<7); // IE7 mis à 0 pending flag de INT7 effacé
+ 116   1        P3IF &= ~(1<<3); // IE7CF mis à 0 - sensibilité int7 front descendant 
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 3   
+
+ 117   1        
+ 118   1        EIP2 &= ~(1<<5);  // PX7 mis à 0 - INT7 priorité basse
+ 119   1        EIE2 |= (1<<5);  // EX7 mis à 1 - INT7 autorisée
+ 120   1      }
+ 121          //******************************************************************************
+ 122          void ISR_INT7 (void) interrupt 19
+ 123          {
+ 124   1        VISU_INT7 = 1;
+ 125   1        P3IF &= ~(1<<7); // IE3 mis à 0 - remise à zéro du pending flag de INT7 effacé
+ 126   1        Event = TO_BE_PROCESSED;
+ 127   1        VISU_INT7 = 0;
+ 128   1      } 
+ 129          
+ 130          //*****************************************************************************  
+ 131          //******************************************************************************
+ 132          void Config_INT6(void)
+ 133          {
+ 134   1        P3IF &= ~(1<<7); // IE6 mis à 0 pending flag de INT6 effacé
+ 135   1        P3IF &= ~(1<<2); // IE6CF mis à 0 - sensibilité int6 front descendant 
+ 136   1        
+ 137   1        EIP2 &= ~(1<<4);  // PX6 mis à 0 - INT7 priorité basse
+ 138   1        EIE2 |= (1<<4);  // EX6 mis à 1 - INT7 autorisée
+ 139   1      }
+ 140          
+ 141          //******************************************************************************
+ 142          void ISR_INT6 (void) interrupt 18
+ 143          {
+ 144   1        SET_VISU_INT6;
+ 145   1        P3IF &= ~(1<<6); // IE6 mis à 0 - remise à zéro du pending flag de INT6 effacé
+ 146   1        P3IF ^= (1<<2);   // Action sur IE6CF - Commutation Front montant / Front Descendant
+ 147   1        Event = TO_BE_PROCESSED;
+ 148   1        RESET_VISU_INT6;
+ 149   1      } 
+ 150          
+ 151          //*****************************************************************************  
+ 152          //******************************************************************************
+ 153          void Config_Timer2_TimeBase(void)
+ 154          {
+ 155   1        CKCON &= ~(1<<5);         // T2M: Timer 2 Clock Select
+ 156   1                               // CLK = sysclk/12TR2 = 0;  //Stop Timer
+ 157   1        TF2 = 0;  // RAZ TF2
+ 158   1        EXF2 = 0;  // RAZ EXF2
+ 159   1        RCLK0 = 0;         
+ 160   1        TCLK0 = 0;
+ 161   1        CPRL2 = 0;  // Mode AutoReload  
+ 162   1        EXEN2 = 0;   // Timer2 external Enable Disabled 
+ 163   1        CT2 = 0;    // Mode Timer
+ 164   1      
+ 165   1        RCAP2 = -((SYSCLK/12)/100);
+ 166   1        T2 = RCAP2;
+ 167   1        TR2 = 1;                           // Timer2 démarré
+ 168   1        PT2 = 1;                // Priorité Timer2 Haute
+ 169   1      
+ 170   1         ET2 = 1;               // INT Timer2 autorisée
+ 171   1      }
+ 172          
+ 173          //******************************************************************************
+ 174          void ISR_Timer2 (void) interrupt 5
+ 175          {
+ 176   1        static char CP_Cligno;
+ 177   1        static char CP_Seconde = 0;
+ 178   1        static bit STATE_LED = LED_BLINK;
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 4   
+
+ 179   1        char Read_Cfg_Event;
+ 180   1        static unsigned int CP_Timer4 = 0;
+ 181   1        static unsigned int OLD_CP_Timer4 = 0;
+ 182   1      
+ 183   1        VISU_INT_TIMER2 = 1;
+ 184   1        
+ 185   1        
+ 186   1        if (TF2 == 1)
+ 187   1        {
+ 188   2          TF2 = 0;
+ 189   2        
+ 190   2        // Gestion de la mesure de frequence - Synthèse
+ 191   2        // Le calcul de la fréquence est fait toutes les secondes   
+ 192   2        CP_Seconde++;
+ 193   2        if (CP_Seconde >= 100) 
+ 194   2        {
+ 195   3          CP_Seconde = 0;
+ 196   3          T4CON &= ~(1<<2);   // TR4 = 0 -- Timer4 stoppé
+ 197   3          CP_Timer4 = T4;     // Lecture Compteur Timer4
+ 198   3          T4CON |= (1<<2);   // TR4 = 1 -- Timer4 redémarré
+ 199   3          // Fréquence = nbre total d'évènements par seconde
+ 200   3          frequence = ((CP_Overflow_Timer4) * (long)Event_to_Count) +
+ 201   3                      (int)(CP_Timer4 - OLD_CP_Timer4);
+ 202   3                      
+ 203   3          OLD_CP_Timer4 = CP_Timer4;
+ 204   3          CP_Overflow_Timer4 = 0;
+ 205   3          
+ 206   3        } 
+ 207   2        // Gestion des évènements INT6 et INT7
+ 208   2        // pour gérer les modes de clignotement de la LED
+ 209   2          if (Event == TO_BE_PROCESSED)
+ 210   2                   {
+ 211   3                     Event = PROCESSED;
+ 212   3                     STATE_LED =  !STATE_LED; 
+ 213   3                   }
+ 214   2        // Gestion du mode de clignotement de la LED           
+ 215   2          CP_Cligno++;
+ 216   2          if (CP_Cligno > 11) CP_Cligno = 0;
+ 217   2          if (STATE_LED == LED_BLINK)
+ 218   2                  {
+ 219   3                    if (CP_Cligno < 2) LED = LED_ON;
+ 220   3                    else LED = LED_OFF;
+ 221   3                  }
+ 222   2                  else LED = LED_OFF;   
+ 223   2                  
+ 224   2        // Etape5 - Lecture consigne du nbre d'évènements à compter pour générer SIG_OUT      
+ 225   2          Read_Cfg_Event = (P2 & ((1<<5)|(1<<6)))>>5; // Lecture consigne sur P2.5 et P2.6
+ 226   2          switch (Read_Cfg_Event)
+ 227   2          {
+ 228   3            case 0:
+ 229   3              Event_to_Count = 10; 
+ 230   3              break;
+ 231   3            case 1:
+ 232   3              Event_to_Count = 100; 
+ 233   3              break;
+ 234   3            case 2:
+ 235   3              Event_to_Count = 1000; 
+ 236   3              break;
+ 237   3            case 3:
+ 238   3              Event_to_Count = 10000; 
+ 239   3              break;
+ 240   3            default:
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 5   
+
+ 241   3              Event_to_Count = 100; 
+ 242   3              break;
+ 243   3          }
+ 244   2        }
+ 245   1        // Sécurité: si EXF2 est à 1 - RAZ de EXF2  
+ 246   1        if (EXF2 == 1)
+ 247   1        {
+ 248   2          EXF2 = 0;
+ 249   2        }
+ 250   1        
+ 251   1        VISU_INT_TIMER2 = 0;
+ 252   1      } 
+ 253          
+ 254          
+ 255          //******************************************************************************
+ 256          void Config_Timer4_Event_Counter(void) // Pour étape 4
+ 257          {
+ 258   1        // Timer 4 configuré en compteur d'évènements SIG_IN
+ 259   1        // SIG_IN câblé sur l'entrée T4 du Timer4
+ 260   1        
+ 261   1        // Timer4 en mode autorechargement
+ 262   1        // Mode Counter
+ 263   1        // CLKTimer = SIG_IN
+ 264   1        // Valeur rechargement= (65536 - Nbre_Event_to_count)
+ 265   1        // L'overflow, et donc l'interruption Timer4 signale le comptage de 100 évènements
+ 266   1        T4CON = 0x02;   // Flags TF4 et EXF4 effacés
+ 267   1                        // RCLK1 et TCLK1 à zéro
+ 268   1                        // Transitions sur T4EX ignorées
+ 269   1                        // Timer stoppé
+ 270   1                        // Timer en mode counter
+ 271   1                        // Mode auto-reload
+ 272   1        RCAP4 = 65536-Event_to_Count;
+ 273   1        T4 = RCAP4;
+ 274   1        T4CON |= (1<<2);      // TR4 = 1 -- Timer2 démarré
+ 275   1        EIP2 |= (1<<2);      //PT4 = 0 -- Priorité Timer4 haute
+ 276   1        EIE2 |= (1<<2);      //ET4 = 1 --  INT Timer4 autorisée
+ 277   1      }
+ 278          
+ 279          //******************************************************************************
+ 280          void ISR_Timer4 (void) interrupt 16  // Etape4
+ 281          {
+ 282   1        
+ 283   1        
+ 284   1        VISU_INT_TIMER4 = 1; 
+ 285   1        
+ 286   1        if ((T4CON & (1<<7)) != 0)   // Test TF4 = 1
+ 287   1        {
+ 288   2          T4CON &= ~(1<<7);    // RAZ TF4
+ 289   2          SIG_OUT = !SIG_OUT;   // Génération SIG_OUT
+ 290   2          // Prise en compte d'un comptage d'évènements configurable
+ 291   2          // La lecture de la config 10-100-1000-10000 est faite dans ISR_Timer2
+ 292   2          RCAP4 = 65536 - Event_to_Count; //Reload compteur d'évènements
+ 293   2          // Comptage des overflows (pour compter au delà de 65536)   
+ 294   2          CP_Overflow_Timer4++;
+ 295   2        }
+ 296   1        
+ 297   1        // Sécurité si T4EX est à 1
+ 298   1        if ((T4CON & (1<<6)) != 0)   // Au cas où: Test EXF4 = 1
+ 299   1        { T4CON &= ~(1<<6); } // RAZ EXF4     
+ 300   1        
+ 301   1        VISU_INT_TIMER4 = 0;
+ 302   1      } 
+C51 COMPILER V9.60.0.0   TP4_BSE_MAIN                                                      12/06/2022 17:31:39 PAGE 6   
+
+ 303          
+ 304          
+ 305          //****************************************************
+ 306          
+ 307          void Cfg_CLK_UART0(void)
+ 308          { 
+ 309   1        TCON &= ~(1<<6); //Timer1 Stoppé (précaution)
+ 310   1        TCON &= ~(1<<7);//Flag Timer1 effacé
+ 311   1        CKCON |= (1<<4); //Config CKCON - | T1M: Timer1 ClockSelect – CLK Timer = Sysclk
+ 312   1        
+ 313   1        TMOD |=(1<<5);//Config TMOD - Timer1 configuré en timer 8 bit avec auto-reload
+ 314   1        TMOD &= ~(1<<4);//Config TMOD - Timer1 configuré en timer 8 bit avec auto-reload
+ 315   1        
+ 316   1        TH1 = 0xBB;//Programmation du registre de rechargement TH1
+ 317   1        //Initialisation du registre Timer TL1 – Nécessaire? /Non car ar defaut à 0.
+ 318   1        IE &= ~(1<<3); //Dévalidation de l’interruption Timer1 – Action sur registre IE
+ 319   1        TCON |= (1<<6); //Timer1 démarré - – Action sur TR1 de TCON
+ 320   1      }
+ 321          
+ 322          void Cfg_UART0(void)
+ 323          { 
+ 324   1        SCON0 |= (1<<4);
+ 325   1        SCON0 &= ~(1<<0);
+ 326   1        TI0 = 1;
+ 327   1        SCON0 |= (1<<5);
+ 328   1        SCON0 &= ~(1<<7);
+ 329   1        SCON0 |= (1<<6);
+ 330   1      
+ 331   1        T2CON &= ~(1<<4);
+ 332   1        T2CON &= ~(1<<5);
+ 333   1        
+ 334   1        PCON |= (1<<7);
+ 335   1        PCON &= ~(1<<6);
+ 336   1      }
+ 337          
+ 338          //****************************************************
+ 339          
+ 340          char putchar(char c)
+ 341          { 
+ 342   1        while(!TI0);
+ 343   1        
+ 344   1        TI0 = 0;
+ 345   1        SBUF0 = c;
+ 346   1        return c;
+ 347   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    634    ----
+   CONSTANT SIZE    =     27    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     16    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

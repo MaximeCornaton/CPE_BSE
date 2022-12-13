@@ -1,0 +1,8 @@
+"STARTUP.obj",
+"TP4_BSE_Lib_Config_Globale.obj",
+"TP4_BSE_Lib_Divers.obj",
+"TP4_BSE_Main.obj" 
+TO "BSE_TP4" 
+RAMSIZE(256) 
+CODE( 0X0000-0XFFFF )
+XDATA( 0X0000-0X0FFF )

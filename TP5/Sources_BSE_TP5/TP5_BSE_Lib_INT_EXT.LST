@@ -1,0 +1,63 @@
+C51 COMPILER V9.60.0.0   TP5_BSE_LIB_INT_EXT                                               12/13/2022 17:42:38 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TP5_BSE_LIB_INT_EXT
+OBJECT MODULE PLACED IN TP5_BSE_Lib_INT_EXT.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE TP5_BSE_Lib_INT_EXT.C OPTIMIZE(0,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2
+                    -)
+
+line level    source
+
+   1          /******************************************************************************
+   2          ;   FILE NAME   : TP5_BSE_Lib_Timers_UART.C
+   3          ;   TARGET MCUs : C8051F020, 
+   4          ;   DESCRIPTION : Configurations des Timers et des UART
+   5          ;
+   6          ;   REVISION 1.0
+   7          ;   
+   8          */
+   9          //******************************************************************************
+  10          
+  11          #include "C8051F020.h"
+  12          #include "c8051F020_SFR16.h"
+  13          #include "TP5_BSE_Lib_INT_EXT.h"
+  14          
+  15          
+  16          //*****************************************************************************  
+  17          //******************************************************************************
+  18          
+  19          
+  20          //******************************************************************************
+  21          void Config_INT7(void)
+  22          {
+  23   1        P3IF &= ~(1<<7); // IE7 mis à 0 pending flag de INT7 effacé
+  24   1        P3IF &= ~(1<<3); // IE7CF mis à 0 - sensibilité int7 front descendant 
+  25   1        
+  26   1        EIP2 &= ~(1<<5);  // PX7 mis à 0 - INT7 priorité basse
+  27   1        EIE2 |= (1<<5);  // EX7 mis à 1 - INT7 autorisée
+  28   1      }
+  29          
+  30          //*****************************************************************************  
+  31          //******************************************************************************
+  32          void Config_INT6(void)
+  33          {
+  34   1        P3IF &= ~(1<<7); // IE6 mis à 0 pending flag de INT6 effacé
+  35   1        P3IF &= ~(1<<2); // IE6CF mis à 0 - sensibilité int6 front descendant 
+  36   1        
+  37   1        EIP2 &= ~(1<<4);  // PX6 mis à 0 - INT7 priorité basse
+  38   1        EIE2 |= (1<<4);  // EX6 mis à 1 - INT7 autorisée
+  39   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     26    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

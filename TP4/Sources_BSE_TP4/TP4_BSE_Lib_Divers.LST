@@ -1,0 +1,90 @@
+C51 COMPILER V9.60.0.0   TP4_BSE_LIB_DIVERS                                                12/06/2022 17:31:39 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TP4_BSE_LIB_DIVERS
+OBJECT MODULE PLACED IN TP4_BSE_Lib_Divers.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE TP4_BSE_Lib_Divers.C WARNINGLEVEL(0) OPTIMIZE(0,SPEED) BROWSE DEBUG OBJE
+                    -CTEXTEND TABS(2)
+
+line level    source
+
+   1          /******************************************************************************
+   2          ;   FILE NAME   : TP2_BSE_Lib_Divers.C
+   3          ;   TARGET MCUs : C8051F020, 
+   4          ;   DESCRIPTION : Fonctions diverses mises à disposition
+   5          ;
+   6          ;   REVISION 1.0
+   7          ;   Ce fichier contient diverses fonctions susceptibles de vous faire gagner 
+   8          ;   un peu de temps
+   9          */
+  10          //******************************************************************************
+  11          
+  12          #include "C8051F020.h"
+  13          #include "intrins.h"
+  14          #include "c8051F020_SFR16.h"
+  15          #include "TP4_BSE_Lib_Divers.h"
+  16          
+  17          //*****************************************************************************  
+  18          //*****************************************************************************  
+  19          // Software_Delay_10ms -- Temporisation 10ms
+  20          //  Pour SYSCLK = 2 MHz - Niveau optimisation 0 du compilateur
+  21          //  Vérifiée en  simulation
+  22          void Software_Delay_10ms(void)
+  23             { 
+  24   1         unsigned int i;
+  25   1         for(i=0;i<998;i++){}
+  26   1         }
+  27             
+  28          //*****************************************************************************  
+  29          //*****************************************************************************  
+  30          // Software_Delay -- Temporisation paramétrable
+  31          //      Pour SYSCLK = 2 MHz - Niveau optimisation 0 du compilateur
+  32          //      Vérifiée en  simulation
+  33          //      L'argument passé en exprimé en centièmes de seconde (dans l'hypothèse 
+  34          //      où SYSCLK = 2MHz)
+  35             
+  36           void Software_Delay(unsigned int hundredth_second)
+  37             { 
+  38   1         unsigned int i;
+  39   1         
+  40   1         for(i=0;i<hundredth_second;i++)
+  41   1            { 
+  42   2            Software_Delay_10ms();
+  43   2            }
+  44   1         }
+  45          
+  46          //*****************************************************************************  
+  47          //*****************************************************************************  
+  48          // Software_Delay_10micro -- Temporisation 10 microsecondes
+  49          //  Pour SYSCLK = 2 MHz - Niveau optimisation 0 du compilateur
+  50          //  Vérifiée en  simulation
+  51          void Software_Delay_10micro(void)
+  52             { 
+  53   1          // L'instruction assembleur NOP est introduite directement dans le code.
+  54   1          // 1 NOP "consomme" 1 cycle CPU    
+C51 COMPILER V9.60.0.0   TP4_BSE_LIB_DIVERS                                                12/06/2022 17:31:39 PAGE 2   
+
+  55   1         _nop_();
+  56   1         _nop_();
+  57   1         _nop_();
+  58   1         _nop_();
+  59   1         _nop_();
+  60   1         _nop_();
+  61   1         _nop_();
+  62   1         _nop_();   
+  63   1         _nop_();      
+  64   1         }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     73    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      6    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

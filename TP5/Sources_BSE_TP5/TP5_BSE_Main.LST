@@ -1,0 +1,315 @@
+C51 COMPILER V9.60.0.0   TP5_BSE_MAIN                                                      12/13/2022 17:42:39 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TP5_BSE_MAIN
+OBJECT MODULE PLACED IN TP5_BSE_Main.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE TP5_BSE_Main.C OPTIMIZE(0,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          //-----------------------------------------------------------------------------
+   2          // TP6_BSE_Main.c
+   3          // AUTH: FJ / Rodolphe Lajugi / Maxime CORNATON
+   4          // DATE: 5/12/21
+   5          //
+   6          // Target: C8051F02x
+   7          // Tool chain: KEIL Microvision5
+   8          //
+   9          //-----------------------------------------------------------------------------
+  10          //-----------------------------------------------------------------------------
+  11          
+  12          // Cette application exécute les tâches suivantes:
+  13          // SYSCLK = Quartz externe = 22.1184 MHz (Visu sur P1.0)
+  14          // Clignotement de la LED P1.6
+  15          // Commande du clignotement de la LED avec le bouton poussoir P3.7 (INT7) et 
+  16          // via le signal DECL_EXT sur P3.6 (INT6)
+  17          
+  18          // Mise en oeuvre de la base de temps Timer2 de 10ms et interruption Timer2
+  19          // Mise en oeuvre de l'UART0 à 115200 Bd, pas de parité, 8 bits, 1 stop bit 
+  20           
+  21          // Visu Flag INT7 sur P2.4
+  22          // Visu Flag INT6 sur P6.4
+  23          // Visu Flag INT Timer2 sur P3.5
+  24          
+  25          //*****************************************************************************
+  26          //-----------------------------------------------------------------------------
+  27          // Fichiers d'entête
+  28          #include "intrins.h"
+  29          #include<stdio.h>
+  30          #include<stdlib.h>
+  31          #include<c8051F020.h>
+  32          #include<c8051F020_SFR16.h>
+  33          #include<TP5_BSE_Lib_Config_Globale.h>
+  34          #include<TP5_BSE_Lib_Divers.h>
+  35          #include<TP5_BSE_Lib_Timers_UART.h>
+  36          #include<TP5_BSE_Lib_INT_EXT.h>
+  37          #include<TP5_BSE_Main.h>
+  38          
+  39          //-----------------------------------------------------------------------------
+  40          // Déclaration des MACROS
+  41          
+  42          
+  43          #define LED_ON 1
+  44          #define LED_OFF 0
+  45          #define LED_BLINK 0
+  46          //#define BP_ON 0
+  47          //#define BP_OFF 1
+  48          #define TO_BE_PROCESSED 1
+  49          #define PROCESSED 0
+  50          #define SET_VISU_INT6 P6 |= (1<<4)
+  51          #define RESET_VISU_INT6 P6 &= ~(1<<4)
+  52          //-----------------------------------------------------------------------------
+  53          // Déclarations Registres et Bits de l'espace SFR
+  54          sbit LED = P1^6;  // LED
+  55          sbit BP =P3^7;
+C51 COMPILER V9.60.0.0   TP5_BSE_MAIN                                                      12/13/2022 17:42:39 PAGE 2   
+
+  56          sbit VISU_INT7 = P2^4;
+  57          sbit VISU_INT_TIMER2 = P3^5;
+  58          //sbit VISU_INT_TIMER4 = P3^4;
+  59          //sbit SIG_OUT = P3^3;
+  60          //-----------------------------------------------------------------------------
+  61          // Variables globales
+  62          
+  63          bit Event = PROCESSED;  // Détection des évènements pour changer le clignotement de la LED
+  64          //unsigned int Event_to_Count = 100 ; //Valeur du comptage d'évènements 
+  65          //long frequence = 0;  // Fréquence calculée de SIG_IN
+  66          //unsigned int CP_Overflow_Timer4; // Compteur d'overflows du Timer4
+  67          bit   Flag_Seconde = 0; // drapeau 1s écoulée
+  68          int CP_Mesure = 0;
+  69          int Value_mV;
+  70          int Compteur_ramp = 0;
+  71          
+  72          //-----------------------------------------------------------------------------
+  73          // MAIN Routine
+  74          //-----------------------------------------------------------------------------
+  75          void main (void) {
+  76   1        
+  77   1      // unsigned char temp_char;
+  78   1      // char xdata buf[20];
+  79   1      // char i;
+  80   1      // int value;
+  81   1        
+  82   1           // Configurations globales
+  83   1              Init_Device();
+  84   1             
+  85   1           // Configurations  spécifiques  
+  86   1              Config_INT7(); // Configuration de INT7
+  87   1              Config_INT6(); // Configuration de INT6
+  88   1              Config_Timer2_TimeBase();
+  89   1              CFG_Clock_UART0();
+  90   1              CFG_UART0();
+  91   1              Voltage_Reference_Init();
+  92   1              ADC0_Init_Etape2();
+  93   1      //      ADC0_Init_Etape4(); 
+  94   1              DAC0_Init();
+  95   1      // Fin des configurations 
+  96   1              printf("**** TP5 - System OK ****\n\n");
+  97   1              EA = 1;  // Validation globale des interruptions
+  98   1              
+  99   1      // Boucle infinie 
+ 100   1               while(1)
+ 101   1               {
+ 102   2                 // Code à ajouter...
+ 103   2                 if(Flag_Seconde == 1){
+ 104   3                    Flag_Seconde = 0;
+ 105   3                    CP_Mesure += 1;
+ 106   3                    AD0INT = 0;
+ 107   3                    AD0BUSY = 1;
+ 108   3      
+ 109   3                    while(AD0INT == 0);
+ 110   3                    Value_mV = ((ADC0*2.4)/4096)*1000;
+ 111   3                    
+ 112   3                    printf("Mesure %5u -ADC0H:%#2.2bx - ADC0L:%#2.2.bx - Vin en mV: %#2.2u \n\r",CP_Mesure,ADC0H,ADC0L,
+             -Value_mV);
+ 113   3                    
+ 114   3                 }
+ 115   2                 
+ 116   2                 
+C51 COMPILER V9.60.0.0   TP5_BSE_MAIN                                                      12/13/2022 17:42:39 PAGE 3   
+
+ 117   2                 
+ 118   2                 while(Compteur_ramp != 4096){
+ 119   3                    DAC0L = Compteur_ramp%256;
+ 120   3                    DAC0H = Compteur_ramp>>8;
+ 121   3                    Compteur_ramp ++;
+ 122   3                    Delay_CLK22M_10Micro();
+*** WARNING C206 IN LINE 122 OF TP5_BSE_Main.C: 'Delay_CLK22M_10Micro': missing function-prototype
+ 123   3                 }
+ 124   2                 
+ 125   2                 DAC0H = 0x3F;
+ 126   2                 DAC0L = 0xFF;
+ 127   2                 Compteur_ramp = 0;
+ 128   2                 
+ 129   2               }
+ 130   1        
+ 131   1                         
+ 132   1                                    
+ 133   1      }
+ 134          //******************************************************************************
+ 135          // Voltage_Reference_Init
+ 136          //******************************************************************************
+ 137          void  Voltage_Reference_Init(void)
+ 138          {
+ 139   1        // Code de configuration de Vref à insérer
+ 140   1      
+ 141   1        REF0CN |= (1<<0);
+ 142   1        REF0CN |= (1<<1);
+ 143   1      
+ 144   1      }
+ 145          
+ 146          //******************************************************************************
+ 147          // ADC0_Init_Etape2
+ 148          //******************************************************************************
+ 149          void  ADC0_Init_Etape2(void)
+ 150          {
+ 151   1        // Code de configuration de l'ADC0 pour l'étape2 à insérer
+ 152   1        AMX0CF |= (1<<1);
+ 153   1        AMX0CF |= (1<<0);
+ 154   1        AMX0CF &= ~(1<<3);
+ 155   1        AMX0CF |= (1<<2);
+ 156   1        
+ 157   1        AMX0SL |= (1<<0);
+ 158   1        AMX0SL |= (1<<1);
+ 159   1        AMX0SL |= (1<<2);
+ 160   1        AMX0SL &= ~(1<<3);
+ 161   1        
+ 162   1        ADC0CF &= ~(1<<2);
+ 163   1        ADC0CF &= ~(1<<1);
+ 164   1        ADC0CF &= ~(1<<0);
+ 165   1        
+ 166   1        ADC0CF &= ~(1<<7);
+ 167   1        ADC0CF &= ~(1<<5);
+ 168   1        ADC0CF &= ~(1<<4);
+ 169   1        ADC0CF &= ~(1<<3);
+ 170   1        //ADC0CF |= (1<<6);
+ 171   1        
+ 172   1        
+ 173   1        //ADC0CN
+ 174   1        AD0LJST = 0;
+ 175   1        AD0CM0 = 0;
+ 176   1        AD0CM1 = 0;
+ 177   1        //AD0TM = 1;
+C51 COMPILER V9.60.0.0   TP5_BSE_MAIN                                                      12/13/2022 17:42:39 PAGE 4   
+
+ 178   1        AD0EN = 1; //ACTIVATION
+ 179   1        
+ 180   1        
+ 181   1      }
+ 182          
+ 183          //******************************************************************************
+ 184          // ADC0_Init_Etape4
+ 185          //******************************************************************************
+ 186          void  ADC0_Init_Etape4(void)
+ 187          {
+ 188   1        // Code de configuration de l'ADC0 pour l'étape4 à insérer
+ 189   1      }
+ 190          //******************************************************************************
+ 191          // DAC0_Init
+ 192          //******************************************************************************
+ 193          void  DAC0_Init(void)
+ 194          { 
+ 195   1        // Code de configuration de l'ADC0 pour l'étape3 à insérer
+ 196   1        DAC0CN = 0x80; //Activation
+ 197   1      }
+ 198          
+ 199          //******************************************************************************
+ 200          // Timer3_Init
+ 201          //******************************************************************************
+ 202          void  Timer3_Init_Fech(void)
+ 203          {
+ 204   1        // Code de configuration du Timer3
+ 205   1      }
+ 206          //******************************************************************************
+ 207          // Detection d'une action sur le Bouton poussoir P3.7
+ 208          //******************************************************************************
+ 209          void ISR_INT7 (void) interrupt 19  // Interruption Bouton poussoir
+ 210          {
+ 211   1        VISU_INT7 = 1;
+ 212   1        P3IF &= ~(1<<7); // IE3 mis à 0 - remise à zéro du pending flag de INT7 effacé
+ 213   1        Event = TO_BE_PROCESSED;
+ 214   1        VISU_INT7 = 0;
+ 215   1      } 
+ 216          
+ 217          //******************************************************************************
+ 218          // Détection de fronts montants et descendants sur P3.6
+ 219          //******************************************************************************
+ 220          void ISR_INT6 (void) interrupt 18 // Interruption externe sur P3.6
+ 221          {
+ 222   1        SET_VISU_INT6;
+ 223   1        P3IF &= ~(1<<6); // IE6 mis à 0 - remise à zéro du pending flag de INT6 effacé
+ 224   1        P3IF ^= (1<<2);   // Action sur IE6CF - Commutation Front montant / Front Descendant
+ 225   1        Event = TO_BE_PROCESSED;
+ 226   1        RESET_VISU_INT6;
+ 227   1      } 
+ 228          
+ 229          
+ 230          //******************************************************************************
+ 231          //  Base de temps de 10ms
+ 232          // Gestion du clignotement de la LED
+ 233          // Prise en compte du changement de mode de clignotement 
+ 234          //*******************************************************************************
+ 235          void ISR_Timer2 (void) interrupt 5
+ 236          {
+ 237   1        static char CP_Cligno;
+ 238   1        static char CP_Seconde = 0;
+ 239   1        static bit STATE_LED = LED_BLINK;
+C51 COMPILER V9.60.0.0   TP5_BSE_MAIN                                                      12/13/2022 17:42:39 PAGE 5   
+
+ 240   1      //  char Read_Cfg_Event;
+ 241   1      //  static unsigned int CP_Timer4 = 0;
+ 242   1      //  static unsigned int OLD_CP_Timer4 = 0;
+ 243   1      
+ 244   1        VISU_INT_TIMER2 = 1;
+ 245   1        
+ 246   1        
+ 247   1        if (TF2 == 1)
+ 248   1        {
+ 249   2          TF2 = 0;
+ 250   2          CP_Seconde++;
+ 251   2          if (CP_Seconde >= 100) 
+ 252   2          {
+ 253   3            CP_Seconde = 0;
+ 254   3            Flag_Seconde = 1;
+ 255   3          } 
+ 256   2        // Gestion des évènements INT6 et INT7
+ 257   2        // pour gérer les modes de clignotement de la LED
+ 258   2          if (Event == TO_BE_PROCESSED)
+ 259   2                   {
+ 260   3                     Event = PROCESSED;
+ 261   3                     STATE_LED =  !STATE_LED; 
+ 262   3                   }
+ 263   2        // Gestion du mode de clignotement de la LED           
+ 264   2          CP_Cligno++;
+ 265   2          if (CP_Cligno > 11) CP_Cligno = 0;
+ 266   2          if (STATE_LED == LED_BLINK)
+ 267   2                  {
+ 268   3                    if (CP_Cligno < 2) LED = LED_ON;
+ 269   3                    else LED = LED_OFF;
+ 270   3                  }
+ 271   2                  else LED = LED_OFF;   
+ 272   2        }
+ 273   1        // Sécurité: si EXF2 est à 1 - RAZ de EXF2  
+ 274   1        if (EXF2 == 1)
+ 275   1        {
+ 276   2          EXF2 = 0;
+ 277   2        }
+ 278   1        
+ 279   1        VISU_INT_TIMER2 = 0;
+ 280   1      } 
+ 281          
+ 282          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    408    ----
+   CONSTANT SIZE    =     94    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      8    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)
